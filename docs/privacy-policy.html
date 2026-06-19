@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy | AquaTrack</title>
+  <meta name="description" content="Privacy Policy for AquaTrack, a daily water tracking app.">
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #ecfeff;
+      --card: rgba(255, 255, 255, 0.94);
+      --text: #0f172a;
+      --muted: #475569;
+      --primary: #0284c7;
+      --primary-dark: #0369a1;
+      --cyan: #22d3ee;
+      --line: rgba(14, 165, 233, 0.18);
+      --shadow: 0 24px 70px rgba(8, 47, 73, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(34, 211, 238, 0.42), transparent 34rem),
+        radial-gradient(circle at bottom right, rgba(2, 132, 199, 0.26), transparent 30rem),
+        linear-gradient(135deg, #f0f9ff 0%, var(--bg) 48%, #e0f2fe 100%);
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .page {
+      width: min(960px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 24px 0 48px;
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      text-decoration: none;
+    }
+
+    .drop {
+      display: grid;
+      width: 44px;
+      height: 44px;
+      place-items: center;
+      border-radius: 16px;
+      color: white;
+      background: linear-gradient(135deg, var(--primary), var(--cyan));
+      box-shadow: 0 12px 30px rgba(2, 132, 199, 0.3);
+    }
+
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .links a {
+      border: 1px solid rgba(2, 132, 199, 0.16);
+      border-radius: 999px;
+      padding: 10px 16px;
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      background: rgba(255, 255, 255, 0.72);
+      box-shadow: 0 8px 24px rgba(8, 47, 73, 0.08);
+    }
+
+    .links a[aria-current="page"] {
+      color: white;
+      background: linear-gradient(135deg, var(--primary), var(--cyan));
+    }
+
+    .document {
+      overflow: hidden;
+      border: 1px solid rgba(125, 211, 252, 0.36);
+      border-radius: 32px;
+      background: var(--card);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .header {
+      padding: clamp(28px, 5vw, 54px);
+      color: white;
+      background:
+        radial-gradient(circle at 18% 10%, rgba(255, 255, 255, 0.28), transparent 18rem),
+        linear-gradient(135deg, #075985 0%, #0284c7 55%, #22d3ee 100%);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 16px;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 0.86rem;
+      font-weight: 800;
+      color: #075985;
+      background: rgba(236, 254, 255, 0.88);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.4rem, 7vw, 4.8rem);
+      line-height: 0.98;
+      letter-spacing: -0.07em;
+    }
+
+    .updated {
+      margin: 20px 0 0;
+      color: rgba(255, 255, 255, 0.82);
+      font-weight: 700;
+    }
+
+    .content {
+      display: grid;
+      gap: 22px;
+      padding: clamp(24px, 5vw, 48px);
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 24px;
+      background: rgba(240, 249, 255, 0.72);
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      color: var(--primary-dark);
+      font-size: 1.35rem;
+      letter-spacing: -0.03em;
+    }
+
+    p,
+    li {
+      color: var(--muted);
+      line-height: 1.75;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    ul {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    .contact {
+      font-weight: 800;
+      color: var(--primary-dark);
+    }
+
+    footer {
+      margin-top: 34px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    @media (max-width: 700px) {
+      .page {
+        width: min(100% - 22px, 960px);
+        padding-top: 16px;
+      }
+
+      .nav {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .links {
+        justify-content: flex-start;
+      }
+
+      .document,
+      .section {
+        border-radius: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <nav class="nav" aria-label="Primary navigation">
+      <a class="brand" href="index.html" aria-label="AquaTrack legal home">
+        <span class="drop">&#128167;</span>
+        <span>AquaTrack</span>
+      </a>
+      <div class="links">
+        <a href="index.html">Home</a>
+        <a href="privacy-policy.html" aria-current="page">Privacy Policy</a>
+        <a href="terms-conditions.html">Terms &amp; Conditions</a>
+      </div>
+    </nav>
+
+    <article class="document">
+      <header class="header">
+        <span class="eyebrow">Privacy Policy</span>
+        <h1>How AquaTrack handles your data.</h1>
+        <p class="updated">Last updated: June 19, 2026</p>
+      </header>
+
+      <div class="content">
+        <section class="section">
+          <h2>Overview</h2>
+          <p>AquaTrack is a daily water tracking app that helps you record cups of water, view daily progress, and follow a hydration streak. This Privacy Policy explains what information is stored and how it is handled.</p>
+        </section>
+
+        <section class="section">
+          <h2>Local device storage</h2>
+          <p>AquaTrack stores app data locally on your device. Data is stored locally on the device and may include your daily goal, completed cups, streak, last tracked date, and display preference such as dark mode. The data remains on your device and is used only to support the app experience.</p>
+        </section>
+
+        <section class="section">
+          <h2>No accounts or cloud services</h2>
+          <ul>
+            <li>No login or user account is required.</li>
+            <li>No backend/server is used for your hydration data.</li>
+            <li>No Firebase is used.</li>
+            <li>No third-party data sharing occurs.</li>
+          </ul>
+        </section>
+
+        <section class="section">
+          <h2>Ads, notifications, and permissions</h2>
+          <ul>
+            <li>No ads currently are included.</li>
+            <li>No notifications currently are sent.</li>
+            <li>No sensitive permissions are requested.</li>
+          </ul>
+        </section>
+
+        <section class="section">
+          <h2>Deleting your data</h2>
+          <p>You can delete AquaTrack data by clearing the app data in your device settings or by uninstalling the app. Because the data is stored locally, deleting app data or uninstalling the app may remove your saved progress and settings.</p>
+        </section>
+
+        <section class="section">
+          <h2>Contact</h2>
+          <p>If you have questions about this Privacy Policy, contact us at <span class="contact">your-email@example.com</span>.</p>
+        </section>
+      </div>
+    </article>
+
+    <footer>
+      <p>&copy; 2026 AquaTrack. <a href="terms-conditions.html">Terms &amp; Conditions</a></p>
+    </footer>
+  </main>
+</body>
+</html>
