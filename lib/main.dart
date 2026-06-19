@@ -1,24 +1,267 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   runApp(const AquaTrackApp());
 }
 
-class AquaTrackApp extends StatelessWidget {
+class AquaTrackApp extends StatefulWidget {
   const AquaTrackApp({super.key});
 
   @override
+  State<AquaTrackApp> createState() => _AquaTrackAppState();
+}
+
+class _AquaTrackAppState extends State<AquaTrackApp> {
+  late final AquaTrackController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AquaTrackController();
+    unawaited(_controller.load());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'AquaTrack',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF0284C7),
-        scaffoldBackgroundColor: const Color(0xFFF0F9FF),
+    return AquaTrackScope(
+      notifier: _controller,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          return MaterialApp(
+            title: 'AquaTrack',
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(
+              useMaterial3: true,
+              colorSchemeSeed: const Color(0xFF0284C7),
+              scaffoldBackgroundColor: const Color(0xFFF0F9FF),
+            ),
+            darkTheme: ThemeData(
+              useMaterial3: true,
+              brightness: Brightness.dark,
+              colorSchemeSeed: const Color(0xFF38BDF8),
+              scaffoldBackgroundColor: const Color(0xFF082F49),
+            ),
+            themeMode:
+                _controller.darkMode ? ThemeMode.dark : ThemeMode.light,
+            home: const SplashScreen(),
+          );
+        },
       ),
-      home: const SplashScreen(),
     );
+  }
+}
+
+class AquaTrackScope extends InheritedNotifier<AquaTrackController> {
+  const AquaTrackScope({
+    super.key,
+    required super.notifier,
+    required super.child,
+  });
+
+  static AquaTrackController of(BuildContext context) {
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<AquaTrackScope>();
+    assert(scope != null, 'No AquaTrackScope found in context.');
+    return scope!.notifier!;
+  }
+}
+
+class AquaTrackController extends ChangeNotifier {
+  AquaTrackController();
+
+  static const _dailyGoalKey = 'daily_goal';
+  static const _completedCupsKey = 'completed_cups';
+  static const _streakKey = 'streak';
+  static const _lastTrackedDateKey = 'last_tracked_date';
+  static const _darkModeKey = 'dark_mode';
+  static const _lastGoalCompletedDateKey = 'last_goal_completed_date';
+  static const _defaultDailyGoal = 8;
+
+  SharedPreferences? _preferences;
+  Timer? _dayResetTimer;
+  bool _isLoaded = false;
+  bool _isDisposed = false;
+  int _dailyGoal = _defaultDailyGoal;
+  int _completedCups = 0;
+  int _streak = 0;
+  String _lastTrackedDate = '';
+  String _lastGoalCompletedDate = '';
+  bool _darkMode = false;
+
+  bool get isLoaded => _isLoaded;
+  int get dailyGoal => _dailyGoal;
+  int get completedCups => _completedCups;
+  int get streak => _streak;
+  bool get darkMode => _darkMode;
+
+  Future<void> load() async {
+    _preferences = await SharedPreferences.getInstance();
+    if (_isDisposed) return;
+
+    _dailyGoal = _preferences!.getInt(_dailyGoalKey) ?? _defaultDailyGoal;
+    _completedCups = _preferences!.getInt(_completedCupsKey) ?? 0;
+    _streak = _preferences!.getInt(_streakKey) ?? 0;
+    _lastTrackedDate = _preferences!.getString(_lastTrackedDateKey) ?? '';
+    _darkMode = _preferences!.getBool(_darkModeKey) ?? false;
+    _lastGoalCompletedDate =
+        _preferences!.getString(_lastGoalCompletedDateKey) ?? '';
+
+    _dailyGoal = _dailyGoal.clamp(1, 99).toInt();
+    _completedCups = _completedCups.clamp(0, 999).toInt();
+    _streak = _streak.clamp(0, 9999).toInt();
+    _resetIfNewDay(DateTime.now());
+
+    _isLoaded = true;
+    await _saveHydration();
+    _scheduleNextDayReset();
+    _notifyListeners();
+  }
+
+  Future<void> drinkCup() async {
+    if (!_isLoaded) return;
+
+    _resetIfNewDay(DateTime.now());
+    final wasGoalCompletedToday = _isGoalCompletedToday;
+
+    _completedCups += 1;
+    if (!wasGoalCompletedToday && _completedCups >= _dailyGoal) {
+      _streak += 1;
+      _lastGoalCompletedDate = _lastTrackedDate;
+    }
+
+    await _saveHydration();
+    _notifyListeners();
+  }
+
+  Future<void> undoCup() async {
+    if (!_isLoaded || _completedCups == 0) return;
+
+    _resetIfNewDay(DateTime.now());
+    final wasGoalCompletedToday = _isGoalCompletedToday;
+
+    _completedCups -= 1;
+    if (wasGoalCompletedToday && _completedCups < _dailyGoal) {
+      _streak = (_streak - 1).clamp(0, 9999).toInt();
+      _lastGoalCompletedDate = '';
+    }
+
+    await _saveHydration();
+    _notifyListeners();
+  }
+
+  Future<void> setDailyGoal(int cups) async {
+    if (!_isLoaded) return;
+
+    _resetIfNewDay(DateTime.now());
+    final wasGoalCompletedToday = _isGoalCompletedToday;
+
+    _dailyGoal = cups.clamp(1, 99).toInt();
+    if (!wasGoalCompletedToday && _completedCups >= _dailyGoal) {
+      _streak += 1;
+      _lastGoalCompletedDate = _lastTrackedDate;
+    } else if (wasGoalCompletedToday && _completedCups < _dailyGoal) {
+      _streak = (_streak - 1).clamp(0, 9999).toInt();
+      _lastGoalCompletedDate = '';
+    }
+
+    await _saveHydration();
+    _notifyListeners();
+  }
+
+  Future<void> setDarkMode(bool value) async {
+    if (!_isLoaded) return;
+
+    _darkMode = value;
+    await _preferences?.setBool(_darkModeKey, _darkMode);
+    _notifyListeners();
+  }
+
+  bool get _isGoalCompletedToday =>
+      _lastGoalCompletedDate == _lastTrackedDate &&
+      _lastGoalCompletedDate.isNotEmpty;
+
+  void _resetIfNewDay(DateTime now) {
+    final today = _dateKey(now);
+    if (_lastTrackedDate.isEmpty) {
+      _lastTrackedDate = today;
+      return;
+    }
+
+    if (_lastTrackedDate == today) return;
+
+    final yesterday = _dateKey(now.subtract(const Duration(days: 1)));
+    if (_lastGoalCompletedDate != yesterday) {
+      _streak = 0;
+    }
+
+    _completedCups = 0;
+    _lastTrackedDate = today;
+    if (_lastGoalCompletedDate != today) {
+      _lastGoalCompletedDate =
+          _lastGoalCompletedDate == yesterday ? _lastGoalCompletedDate : '';
+    }
+  }
+
+  Future<void> _saveHydration() async {
+    final preferences = _preferences;
+    if (preferences == null) return;
+
+    await preferences.setInt(_dailyGoalKey, _dailyGoal);
+    await preferences.setInt(_completedCupsKey, _completedCups);
+    await preferences.setInt(_streakKey, _streak);
+    await preferences.setString(_lastTrackedDateKey, _lastTrackedDate);
+    await preferences.setBool(_darkModeKey, _darkMode);
+    await preferences.setString(
+      _lastGoalCompletedDateKey,
+      _lastGoalCompletedDate,
+    );
+  }
+
+  void _scheduleNextDayReset() {
+    _dayResetTimer?.cancel();
+
+    final now = DateTime.now();
+    final tomorrow = DateUtils.dateOnly(now).add(const Duration(days: 1));
+    final delay = tomorrow.difference(now) + const Duration(seconds: 1);
+
+    _dayResetTimer = Timer(delay, _handleDayResetTimer);
+  }
+
+  Future<void> _handleDayResetTimer() async {
+    if (!_isLoaded || _isDisposed) return;
+
+    _resetIfNewDay(DateTime.now());
+    await _saveHydration();
+    _notifyListeners();
+    _scheduleNextDayReset();
+  }
+
+  void _notifyListeners() {
+    if (!_isDisposed) {
+      notifyListeners();
+    }
+  }
+
+  String _dateKey(DateTime date) {
+    final local = date.toLocal();
+    return DateUtils.dateOnly(local).toIso8601String();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    _dayResetTimer?.cancel();
+    super.dispose();
   }
 }
 
@@ -97,13 +340,13 @@ class SplashScreen extends StatelessWidget {
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
-  final int goal = 8;
-  final int completed = 3;
-  final int streak = 4;
-
   @override
   Widget build(BuildContext context) {
-    final progress = completed / goal;
+    final controller = AquaTrackScope.of(context);
+    final goal = controller.dailyGoal;
+    final completed = controller.completedCups;
+    final streak = controller.streak;
+    final progress = (completed / goal).clamp(0.0, 1.0).toDouble();
 
     return Scaffold(
       appBar: AppBar(
@@ -126,6 +369,11 @@ class HomeScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          if (!controller.isLoaded)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 20),
+              child: LinearProgressIndicator(),
+            ),
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -174,10 +422,10 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 14),
-              const Expanded(
+              Expanded(
                 child: _InfoCard(
                   title: 'Goal',
-                  value: '8 cups',
+                  value: '$goal cups',
                   icon: Icons.flag_rounded,
                 ),
               ),
@@ -187,7 +435,7 @@ class HomeScreen extends StatelessWidget {
           SizedBox(
             height: 56,
             child: FilledButton.icon(
-              onPressed: () {},
+              onPressed: controller.isLoaded ? controller.drinkCup : null,
               icon: const Icon(Icons.add_rounded),
               label: const Text('I drank a cup'),
             ),
@@ -196,7 +444,9 @@ class HomeScreen extends StatelessWidget {
           SizedBox(
             height: 52,
             child: OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: controller.isLoaded && completed > 0
+                  ? controller.undoCup
+                  : null,
               icon: const Icon(Icons.undo_rounded),
               label: const Text('Undo'),
             ),
@@ -220,19 +470,21 @@ class _InfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surface,
         borderRadius: BorderRadius.circular(22),
       ),
       child: Column(
         children: [
-          Icon(icon, color: const Color(0xFF0284C7)),
+          Icon(icon, color: colorScheme.primary),
           const SizedBox(height: 10),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
-          Text(title, style: TextStyle(color: Colors.grey.shade600)),
+          Text(title, style: TextStyle(color: colorScheme.onSurfaceVariant)),
         ],
       ),
     );
@@ -244,19 +496,24 @@ class SettingsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final controller = AquaTrackScope.of(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const ListTile(
-            title: Text('Daily Goal'),
-            subtitle: Text('8 cups per day'),
-            leading: Icon(Icons.flag_rounded),
+          ListTile(
+            title: const Text('Daily Goal'),
+            subtitle: Text('${controller.dailyGoal} cups per day'),
+            leading: const Icon(Icons.flag_rounded),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: () => _showDailyGoalDialog(context, controller),
           ),
           SwitchListTile(
-            value: false,
-            onChanged: (_) {},
+            value: controller.darkMode,
+            onChanged:
+                controller.isLoaded ? controller.setDarkMode : null,
             title: const Text('Dark Mode'),
             secondary: const Icon(Icons.dark_mode_rounded),
           ),
@@ -285,6 +542,51 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _showDailyGoalDialog(
+    BuildContext context,
+    AquaTrackController controller,
+  ) async {
+    final textController =
+        TextEditingController(text: controller.dailyGoal.toString());
+
+    final goal = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Daily Goal'),
+          content: TextField(
+            controller: textController,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Cups per day',
+              helperText: 'Choose a goal from 1 to 99 cups.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final parsed = int.tryParse(textController.text.trim());
+                Navigator.pop(dialogContext, parsed);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    textController.dispose();
+
+    if (goal != null && context.mounted) {
+      await controller.setDailyGoal(goal);
+    }
+  }
 }
 
 class PrivacyPolicyScreen extends StatelessWidget {
@@ -295,7 +597,12 @@ class PrivacyPolicyScreen extends StatelessWidget {
     return const _TextPage(
       title: 'Privacy Policy',
       content:
-      'AquaTrack stores your hydration data locally on your device. The app does not require login, does not use a backend server, does not share data with third parties, and does not collect sensitive personal information.',
+          'AquaTrack is designed as a simple offline hydration tracker.\n\n'
+          'Data stored on your device: your daily cup goal, cups completed for the current day, streak count, last tracked date, and dark mode preference. This information is saved locally using device preferences so the app can restore your progress when you reopen it.\n\n'
+          'No account or backend: AquaTrack does not require a login, does not connect to a backend server, and does not use Firebase or other cloud services for your hydration data.\n\n'
+          'No advertising or tracking: AquaTrack does not show ads, does not use advertising SDKs, and does not sell or share your data with third parties.\n\n'
+          'No notifications: AquaTrack does not schedule or send reminders, push notifications, or marketing messages.\n\n'
+          'Your control: because the data is stored locally on your device, uninstalling the app or clearing app data may remove your saved AquaTrack progress and settings.',
     );
   }
 }
@@ -308,7 +615,13 @@ class TermsConditionsScreen extends StatelessWidget {
     return const _TextPage(
       title: 'Terms & Conditions',
       content:
-      'By using AquaTrack, you agree to use the app for personal hydration tracking only. The app is provided as a simple productivity and wellness tool and does not provide medical advice.',
+          'By using AquaTrack, you agree to use the app as a personal hydration tracking tool.\n\n'
+          'Personal use: AquaTrack is intended to help you record cups of water and monitor a daily goal on your own device. It is not a backend service, social platform, or account-based product.\n\n'
+          'No medical advice: AquaTrack does not provide medical, nutrition, or health care advice. Hydration needs vary by person and circumstance, so consult a qualified professional if you have health questions.\n\n'
+          'Local data: your goal, cups, streak, last tracked date, and dark mode preference are stored locally on your device. You are responsible for managing your device data, backups, and app removal.\n\n'
+          'Availability: AquaTrack is provided as a simple utility. Features may change, and the app may not be error-free or available on every device configuration.\n\n'
+          'Acceptable use: do not misuse the app, attempt to reverse engineer it for harmful purposes, or use it in a way that violates applicable laws.\n\n'
+          'If you do not agree with these terms, stop using AquaTrack and remove it from your device.',
     );
   }
 }
