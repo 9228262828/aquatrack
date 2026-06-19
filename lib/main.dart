@@ -16,12 +16,13 @@ class AquaTrackApp extends StatefulWidget {
 
 class _AquaTrackAppState extends State<AquaTrackApp> {
   late final AquaTrackController _controller;
+  bool _darkMode = false;
 
   @override
   void initState() {
     super.initState();
     _controller = AquaTrackController();
-    unawaited(_controller.load());
+    unawaited(_loadController());
   }
 
   @override
@@ -32,32 +33,54 @@ class _AquaTrackAppState extends State<AquaTrackApp> {
 
   @override
   Widget build(BuildContext context) {
-    return AquaTrackScope(
-      notifier: _controller,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          return MaterialApp(
-            title: 'AquaTrack',
-            debugShowCheckedModeBanner: false,
-            theme: ThemeData(
-              useMaterial3: true,
-              colorSchemeSeed: const Color(0xFF0284C7),
-              scaffoldBackgroundColor: const Color(0xFFF0F9FF),
-            ),
-            darkTheme: ThemeData(
-              useMaterial3: true,
-              brightness: Brightness.dark,
-              colorSchemeSeed: const Color(0xFF38BDF8),
-              scaffoldBackgroundColor: const Color(0xFF082F49),
-            ),
-            themeMode:
-                _controller.darkMode ? ThemeMode.dark : ThemeMode.light,
-            home: const SplashScreen(),
-          );
-        },
+    return MaterialApp(
+      title: 'AquaTrack',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: const Color(0xFF0284C7),
+        scaffoldBackgroundColor: const Color(0xFFF0F9FF),
       ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        brightness: Brightness.dark,
+        colorSchemeSeed: const Color(0xFF38BDF8),
+        scaffoldBackgroundColor: const Color(0xFF082F49),
+      ),
+      themeMode: _darkMode ? ThemeMode.dark : ThemeMode.light,
+      builder: (context, child) {
+        return AquaTrackScope(
+          notifier: _controller,
+          onDarkModeChanged: _setDarkMode,
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+      home: const SplashScreen(),
     );
+  }
+
+  Future<void> _loadController() async {
+    await _controller.load();
+    if (!mounted) return;
+
+    final darkMode = _controller.darkMode;
+    if (_darkMode != darkMode) {
+      setState(() {
+        _darkMode = darkMode;
+      });
+    }
+  }
+
+  Future<void> _setDarkMode(bool value) async {
+    if (!mounted) return;
+
+    if (_darkMode != value) {
+      setState(() {
+        _darkMode = value;
+      });
+    }
+
+    await _controller.setDarkMode(value);
   }
 }
 
@@ -65,14 +88,26 @@ class AquaTrackScope extends InheritedNotifier<AquaTrackController> {
   const AquaTrackScope({
     super.key,
     required super.notifier,
+    required this.onDarkModeChanged,
     required super.child,
   });
+
+  final Future<void> Function(bool value) onDarkModeChanged;
 
   static AquaTrackController of(BuildContext context) {
     final scope =
         context.dependOnInheritedWidgetOfExactType<AquaTrackScope>();
     assert(scope != null, 'No AquaTrackScope found in context.');
     return scope!.notifier!;
+  }
+
+  static Future<void> Function(bool value) darkModeUpdaterOf(
+    BuildContext context,
+  ) {
+    final scope =
+        context.dependOnInheritedWidgetOfExactType<AquaTrackScope>();
+    assert(scope != null, 'No AquaTrackScope found in context.');
+    return scope!.onDarkModeChanged;
   }
 }
 
@@ -183,7 +218,6 @@ class AquaTrackController extends ChangeNotifier {
 
     _darkMode = value;
     await _preferences?.setBool(_darkModeKey, _darkMode);
-    _notifyListeners();
   }
 
   bool get _isGoalCompletedToday =>
@@ -497,6 +531,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = AquaTrackScope.of(context);
+    final setDarkMode = AquaTrackScope.darkModeUpdaterOf(context);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -512,8 +547,11 @@ class SettingsScreen extends StatelessWidget {
           ),
           SwitchListTile(
             value: controller.darkMode,
-            onChanged:
-                controller.isLoaded ? controller.setDarkMode : null,
+            onChanged: controller.isLoaded
+                ? (value) {
+                    unawaited(setDarkMode(value));
+                  }
+                : null,
             title: const Text('Dark Mode'),
             secondary: const Icon(Icons.dark_mode_rounded),
           ),
